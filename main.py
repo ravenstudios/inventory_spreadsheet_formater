@@ -1,67 +1,61 @@
 import re
-from pyexcel_ods import save_data
-from collections import OrderedDict
 import pyexcel
-def get_data():
-    pattern = "\d{1,3}\tiPhone (\d{1,2})?\w{1,2}?\+?\s?\t?(Pro Max)?(Pro)?(mini)?(Max)?\s?\t?LCD\s(Black|White)\sAFTERMARKET\s\d{1,2}"
+from openpyxl import Workbook
+from openpyxl.styles import PatternFill
+import requests
 
+
+def get_data(data):
+    pattern = "<td>\d{1,3}<\/td><td>(iPhone)(\s)?(X?|XR?|XS?)(\d{1,2})?(S)?(\+?)\s?(mini)?(Pro)?\s?(Max)?<\/td><td>LCD<\/td><td>(Black?|White)<\/td><td>AFTERMARKET<\/td><td>(\d{1,3})"
     filtered_list = []
-    with open("inv_test.txt") as file: # Use file to refer to the file object
 
-       document = file.read().split("\n")
+    web_data = re.findall(pattern, data)
+    for line in list(web_data):
+        data = []
+        name = ""
 
-       for line in document:
-           if re.search(pattern, line):
-               # line = line.replace("\t", " ")
+        for i in range(7):
+            name += line[i]
 
-               model_pattern = "iPhone \w{1,2}\+?\s(mini)?(Pro)?\s?(Max)?"
-               model = re.search(model_pattern, line).group()
+        data.append(name)
+        data.append(line[9])
+        data.append(line[10])
 
-               color_pattern = "Black|White"
-               color = re.search(color_pattern, line).group()
-
-               quanty_pattern = "(?<=\t)-?\d{1,3}"
-               quanty = re.search(quanty_pattern, line).group()
-
-
-
-
-
-               filtered_list.append([model, color, quanty])
-
-
+        filtered_list.append(data)
     return filtered_list
 
-print(get_data())
 
-inventory = get_data()
-# data = OrderedDict()
-sheet = pyexcel.Sheet(inventory)
-# # data.update({"Sheet 1": [["Model", "Color", "OnHand", "Front", "Back", "Difference"]]})
-# # for entry in inventory:
-# #     # print(entry)
-# #     model = entry[1] + " " + entry[2]
-# #     # print(model)
-# #     data.update({"Sheet 1": [[model, entry[3], entry[2]]]})
-sheet.save_as("Inventory.ods")
-# save_data("Inventory.ods", data)
 
-# def write_to_spreadsheet(data):
-#
-#     workbook = Workbook(FileFormatType.ODS)
-#
-#     # Access the first worksheet of the workbook.
-#     worksheet = workbook.getWorksheets().get(0)
-#
-#     # // Get the desired cell(s) of the worksheet and input the value into the cell(s).
-#     worksheet.getCells().get("A1").putValue("ColumnA")
-#     worksheet.getCells().get("B1").putValue("ColumnB")
-#     worksheet.getCells().get("A2").putValue("ValueA")
-#     worksheet.getCells().get("B2").putValue("ValueB")
-#
-#     # // Save the workbook as ODS file.
-#     workbook.save(self.dataDir + "book.default.out.output.ods")
-#     print(workbook)
-#     jpype.shutdownJVM()
-#
-# write_to_spreadsheet()
+def get_inventory_from_site():
+
+    URL = "http://www.254repair.com/repairs//inshop2/inventoryreportapple.php"
+    page = requests.get(URL)
+
+
+
+
+
+
+# def get_xmls():
+    workbook = Workbook()
+    ws = workbook.active
+
+    data = get_data(page.text)
+    ws.column_dimensions['A'].width = 15
+    ws.append(["Phone", "Color", "Quanity", "Front", "Back", "Diff"])
+    for d in data:
+        ws.append(d)
+
+    row_count = ws.max_row
+    yellow = "00FFFF00"
+    for rows in ws.iter_rows(min_row=1, max_row=row_count, min_col=1, max_col=6):
+        for cell in rows:
+            if cell.row % 2:
+                cell.fill = PatternFill(start_color=yellow, end_color=yellow, fill_type = "solid")
+    workbook.save("inventory.xlsx")
+
+
+
+
+
+get_inventory_from_site()
